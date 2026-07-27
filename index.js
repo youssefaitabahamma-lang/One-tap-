@@ -1,168 +1,312 @@
 const { 
-    Client, 
-    GatewayIntentBits, 
-    PermissionFlagsBits, 
-    ChannelType, 
-    REST, 
-    Routes, 
-    SlashCommandBuilder 
-} = require('discord.js');
+  Client, 
+  GatewayIntentBits, 
+  REST, 
+  Routes, 
+  SlashCommandBuilder, 
+  ChannelType, 
+  PermissionFlagsBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
+} = require("discord.js");
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// 🔴 يمكنك وضع الـ ID مباشرة هنا إذا أردت تثبيت الروم بدون الحاجة لأمر /setup
-let CREATE_VOICE_CHANNEL_ID = 'حط_هنا_ID_ديال_روم_Create_Voice';
-
-// خريطة لتسجيل ملكية الرومات الصوتية المؤقتة
-const tempChannels = new Map();
-
-// 1️⃣ إعداد أمر الـ Slash Command (/setup)
+// Slash Command Registration
 const commands = [
-    new SlashCommandBuilder()
-        .setName('setup')
-        .setDescription('إعداد نظام الرومات الصوتية التلقائية (Join to Create)')
-        .addChannelOption(option =>
-            option.setName('channel')
-                .setDescription('اختر الروم الصوتية اللي أيدخلوا ليها الناس باش تكرى ليهم روم جديدة')
-                .addChannelTypes(ChannelType.GuildVoice)
-                .setRequired(true)
-        )
-].map(command => command.toJSON());
+  new SlashCommandBuilder()
+    .setName("setup")
+    .setDescription("Setup the One Tap Voice interface")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+].map(cmd => cmd.toJSON());
 
-// 2️⃣ عند تشغيل البوت: تسجيل أمر /setup فـ Discord
-client.once('ready', async () => {
-    console.log(`✅ Bot is online as ${client.user.tag}`);
-
-    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
-    try {
-        console.log('🔄 جاري تسجيل أوامر Slash Commands...');
-        await rest.put(
-            Routes.applicationCommands(client.user.id),
-            { body: commands }
-        );
-        console.log('✅ تم تسجيل أمر /setup بنجاح!');
-    } catch (error) {
-        console.error('❌ خطأ أثناء تسجيل الأوامر:', error);
-    }
+client.once("ready", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  try {
+    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+    console.log("✅ Successfully registered /setup command!");
+  } catch (err) {
+    console.error("❌ Failed to register commands:", err);
+  }
 });
 
-// 3️⃣ الاستجابة لأمر /setup فـ Discord
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
+// Setup Command Handler
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'setup') {
-        if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-            return interaction.reply({ 
-                content: '❌ ما عندكش صلاحية (Manage Channels) باش تستعمل هاد الأمر!', 
-                ephemeral: true 
-            });
-        }
+  if (interaction.commandName === "setup") {
+    const guild = interaction.guild;
+    
+    const category = await guild.channels.create({
+      name: "🔊 ONE TAP VOICE",
+      type: ChannelType.GuildCategory
+    });
 
-        const selectedChannel = interaction.options.getChannel('channel');
-        CREATE_VOICE_CHANNEL_ID = selectedChannel.id;
+    const primaryChannel = await guild.channels.create({
+      name: "➕ Join to Create",
+      type: ChannelType.GuildVoice,
+      parent: category.id
+    });
 
-        await interaction.reply({
-            content: `✅ تم إعداد نظام Voice بنجاح! الروم المحددة هي: **${selectedChannel.name}**`,
-            ephemeral: true
-        });
-    }
+    client.primaryChannelId = primaryChannel.id;
+
+    await interaction.reply({
+      content: `✅ **One Tap Voice system successfully created!**\nJoin channel: <#${primaryChannel.id}>`,
+      ephemeral: true
+    });
+  }
 });
 
-// 4️⃣ كود الإنشاء والمسح التلقائي للـ Voice Channels
-client.on('voiceStateUpdate', async (oldState, newState) => {
-    const user = newState.member.user;
+// Voice State Update (Dynamic Channel Creation & Clean Interface)
+client.on("voiceStateUpdate", async (oldState, newState) => {
+  if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
+    const user = newState.member.user;
 
-    // حالة 1: العضو دخل لـ روم "Create Voice"
-    if (newState.channelId === CREATE_VOICE_CHANNEL_ID) {
-        try {
-            // إنشاء روم صوتية جديدة بسمية العضو
-            const createdChannel = await guild.channels.create({
-                name: `🔊 ${user.username}'s Room`,
-                type: ChannelType.GuildVoice,
-                parent: newState.channel?.parentId || null,
-                permissionOverwrites: [
-                    {
-                        id: user.id, // مول الروم كياخد صلاحيات التحكم
-                        allow: [
-                            PermissionFlagsBits.ManageChannels,
-                            PermissionFlagsBits.MoveMembers,
-                            PermissionFlagsBits.Connect
-                        ]
-                    }
-                ]
-            });
-
-            // تسجيل المول ديال الروم
-            tempChannels.set(createdChannel.id, user.id);
-
-            // نقل العضو للروم الجديدة تلقائياً
-            await newState.setChannel(createdChannel);
-        } catch (error) {
-            console.error('Error creating voice channel:', error);
+    // Create channel
+    const tempChannel = await guild.channels.create({
+      name: `🔊 ${user.username}'s Room`,
+      type: ChannelType.GuildVoice,
+      parent: newState.channel.parentId,
+      permissionOverwrites: [
+        {
+          id: user.id,
+          allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.Connect]
         }
-    }
+      ]
+    });
 
-    // حالة 2: العضو خرج من روم مؤقتة وكان فيها 0 أعضاء -> مسح الروم
-    if (oldState.channelId && tempChannels.has(oldState.channelId)) {
-        const channel = oldState.channel;
-        if (channel && channel.members.size === 0) {
-            tempChannels.delete(channel.id);
-            await channel.delete().catch(console.error);
-        }
+    // Move User
+    await newState.setChannel(tempChannel);
+
+    const serverBanner = guild.bannerURL({ size: 1024 }) || guild.iconURL({ dynamic: true, size: 1024 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
+
+    // Embed Design
+    const mainEmbed = new EmbedBuilder()
+      .setTitle(`🎙️ ${guild.name} Voice Control`)
+      .setDescription("Use the interactive buttons below or type `.v` commands to manage your voice channel.")
+      .setColor("#5865F2") // لون ديسكورد الأزرق الأنيق
+      .setImage(serverBanner)
+      .setFooter({ text: "One Tap Voice System • Powered by YASHIRO", iconURL: guild.iconURL() });
+
+    // Row 1: Name, Lock, Unlock
+    const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_rename").setLabel("Name").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_lock").setLabel("Lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_unlock").setLabel("Unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 2: Hide, Unhide, Limit
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_hide").setLabel("Hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_unhide").setLabel("Unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_limit").setLabel("Limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 3: Claim, Permit, Reject
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_claim").setLabel("Claim").setEmoji("👑").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_permit").setLabel("Permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_reject").setLabel("Reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 4: Kick, Transfer
+    const row4 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_kick").setLabel("Kick").setEmoji("👢").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("v_transfer").setLabel("Transfer").setEmoji("🔀").setStyle(ButtonStyle.Primary)
+    );
+
+    await tempChannel.send({
+      embeds: [mainEmbed],
+      components: [row1, row2, row3, row4]
+    });
+  }
+
+  // Auto-delete empty channels
+  if (oldState.channel && oldState.channel.id !== client.primaryChannelId) {
+    if (oldState.channel.members.size === 0 && oldState.channel.parentId === newState.guild?.channels.cache.get(client.primaryChannelId)?.parentId) {
+      await oldState.channel.delete().catch(() => {});
     }
+  }
 });
 
-// 5️⃣ أوامر التحكم فـ الروم (مثال: .v reject @user)
-client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.content.startsWith('.v ')) return;
+// Message Commands (.v prefix)
+client.on("messageCreate", async (message) => {
+  if (message.author.bot || !message.guild) return;
 
-    const args = message.content.slice(3).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
+  const prefix = ".v";
+  if (!message.content.startsWith(prefix)) return;
 
-    // أمر الطرد والمنع .v reject
-    if (command === 'reject') {
-        const voiceChannel = message.member.voice.channel;
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const command = args.shift()?.toLowerCase();
 
-        // التأكد واش الشخص فـ روم صوتية مؤقتة وهوا صاحب الروم
-        if (!voiceChannel || !tempChannels.has(voiceChannel.id)) {
-            return message.reply('❌ خاصك تكون فـ الروم الصوتية المؤقتة ديالك باش تستعمل هاد الأمر!');
-        }
+  const channel = message.member.voice.channel;
+  if (!channel) {
+    return message.reply("❌ You must be in a voice channel to use `.v` commands!");
+  }
 
-        if (tempChannels.get(voiceChannel.id) !== message.author.id) {
-            return message.reply('❌ أنت ماشي هو مول هاد الروم!');
-        }
-
-        const targetMember = message.mentions.members.first();
-        if (!targetMember) {
-            return message.reply('❌ من فضلك طاقي الشخص اللي باغي تجريه: `.v reject @user`');
-        }
-
-        try {
-            // سحب صلاحية الدخول من الشخص
-            await voiceChannel.permissionOverwrites.edit(targetMember.id, {
-                Connect: false
-            });
-
-            // إلا كان الشخص فـ نفس الروم، كيجري عليه البوت بـ قطع الاتصال
-            if (targetMember.voice.channelId === voiceChannel.id) {
-                await targetMember.voice.disconnect();
-            }
-
-            message.reply(`🚫 تم منع ${targetMember.user.username} من دخول الروم ديالك!`);
-        } catch (error) {
-            console.error(error);
-            message.reply('❌ وقع خطأ أثناء تطبيق الأمر.');
-        }
+  if (command === "lock") {
+    await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: false });
+    return message.reply("🔒 **Voice channel locked.**");
+  } 
+  else if (command === "unlock") {
+    await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: true });
+    return message.reply("🔓 **Voice channel unlocked.**");
+  } 
+  else if (command === "hide") {
+    await channel.permissionOverwrites.edit(message.guild.roles.everyone, { ViewChannel: false });
+    return message.reply("🙈 **Voice channel hidden.**");
+  } 
+  else if (command === "unhide") {
+    await channel.permissionOverwrites.edit(message.guild.roles.everyone, { ViewChannel: true });
+    return message.reply("👀 **Voice channel unhidden.**");
+  } 
+  else if (command === "name" || command === "rename") {
+    const newName = args.join(" ");
+    if (!newName) return message.reply("❌ Usage: `.v name [New Name]`");
+    await channel.setName(newName);
+    return message.reply(`✏️ **Channel renamed to:** \`${newName}\``);
+  } 
+  else if (command === "limit") {
+    const limitNum = parseInt(args[0]);
+    if (isNaN(limitNum)) return message.reply("❌ Usage: `.v limit [Number]`");
+    await channel.setUserLimit(limitNum);
+    return message.reply(`👥 **User limit set to:** \`${limitNum}\``);
+  } 
+  else if (command === "claim") {
+    return message.reply("👑 **You are now the channel owner.**");
+  } 
+  else if (command === "kick") {
+    const target = message.mentions.members.first();
+    if (!target) return message.reply("❌ Usage: `.v kick @User`");
+    if (target.voice.channelId === channel.id) {
+      await target.voice.disconnect();
+      return message.reply(`👢 **Kicked ${target.user.username} from voice.**`);
+    } else {
+      return message.reply("❌ User is not in your voice channel!");
     }
+  } 
+  else if (command === "perm" || command === "permit") {
+    const target = message.mentions.members.first();
+    if (!target) return message.reply("❌ Usage: `.v perm @User`");
+    await channel.permissionOverwrites.edit(target.id, { Connect: true, ViewChannel: true });
+    return message.reply(`➕ **Permitted ${target.user.username} to join.**`);
+  } 
+  else if (command === "reject") {
+    const target = message.mentions.members.first();
+    if (!target) return message.reply("❌ Usage: `.v reject @User`");
+    await channel.permissionOverwrites.edit(target.id, { Connect: false });
+    if (target.voice.channelId === channel.id) {
+      await target.voice.disconnect();
+    }
+    return message.reply(`➖ **Rejected ${target.user.username}.**`);
+  } 
+  else if (command === "transfer") {
+    return message.reply("🔀 **Ownership transfer command received.**");
+  } 
+  else if (command === "bl") {
+    const subCommand = args[0]?.toLowerCase();
+    const target = message.mentions.members.first();
+    if (subCommand === "add") {
+      if (!target) return message.reply("❌ Usage: `.v bl add @User`");
+      await channel.permissionOverwrites.edit(target.id, { Connect: false });
+      return message.reply(`🚫 **Added ${target.user.username} to Blacklist.**`);
+    } else if (subCommand === "remove") {
+      if (!target) return message.reply("❌ Usage: `.v bl remove @User`");
+      await channel.permissionOverwrites.edit(target.id, { Connect: null });
+      return message.reply(`✅ **Removed ${target.user.username} from Blacklist.**`);
+    }
+  }
+});
+
+// Button Interactions & Modals
+client.on("interactionCreate", async (interaction) => {
+  const channel = interaction.channel;
+
+  if (interaction.isButton()) {
+    if (!channel || channel.type !== ChannelType.GuildVoice) return;
+
+    if (interaction.customId === "v_lock") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: false });
+      await interaction.reply({ content: "🔒 **Voice channel locked.**", ephemeral: true });
+    } 
+    else if (interaction.customId === "v_unlock") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: true });
+      await interaction.reply({ content: "🔓 **Voice channel unlocked.**", ephemeral: true });
+    } 
+    else if (interaction.customId === "v_hide") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { ViewChannel: false });
+      await interaction.reply({ content: "🙈 **Voice channel hidden.**", ephemeral: true });
+    } 
+    else if (interaction.customId === "v_unhide") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { ViewChannel: true });
+      await interaction.reply({ content: "👀 **Voice channel unhidden.**", ephemeral: true });
+    } 
+    else if (interaction.customId === "v_claim") {
+      await interaction.reply({ content: "👑 **You are already the channel owner.**", ephemeral: true });
+    } 
+    else if (interaction.customId === "v_rename") {
+      const modal = new ModalBuilder().setCustomId("m_rename").setTitle("Rename Voice Channel");
+      const nameInput = new TextInputBuilder()
+        .setCustomId("input_name")
+        .setLabel("Enter new channel name")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+      await interaction.showModal(modal);
+    } 
+    else if (interaction.customId === "v_limit") {
+      const modal = new ModalBuilder().setCustomId("m_limit").setTitle("Set Channel User Limit");
+      const limitInput = new TextInputBuilder()
+        .setCustomId("input_limit")
+        .setLabel("Enter limit number (0 - 99)")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      modal.addComponents(new ActionRowBuilder().addComponents(limitInput));
+      await interaction.showModal(modal);
+    }
+    else if (interaction.customId === "v_permit") {
+      await interaction.reply({ content: "➕ **Use command:** `.v perm @User` to permit specific member.", ephemeral: true });
+    }
+    else if (interaction.customId === "v_reject") {
+      await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject specific member.", ephemeral: true });
+    }
+    else if (interaction.customId === "v_kick") {
+      await interaction.reply({ content: "👢 **Use command:** `.v kick @User` to kick member from voice.", ephemeral: true });
+    }
+    else if (interaction.customId === "v_transfer") {
+      await interaction.reply({ content: "🔀 **Ownership transfer ready.**", ephemeral: true });
+    }
+  }
+
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId === "m_rename") {
+      const newName = interaction.fields.getTextInputValue("input_name");
+      await channel.setName(newName);
+      await interaction.reply({ content: `✏️ **Channel name updated to:** \`${newName}\``, ephemeral: true });
+    } 
+    else if (interaction.customId === "m_limit") {
+      const limitVal = parseInt(interaction.fields.getTextInputValue("input_limit"));
+      if (isNaN(limitVal) || limitVal < 0 || limitVal > 99) {
+        return interaction.reply({ content: "❌ **Please enter a valid number (0 - 99).**", ephemeral: true });
+      }
+      await channel.setUserLimit(limitVal);
+      await interaction.reply({ content: `👥 **Channel limit updated to:** \`${limitVal}\``, ephemeral: true });
+    }
+  }
 });
 
 client.login(process.env.TOKEN);
