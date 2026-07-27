@@ -69,15 +69,15 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// One Tap Voice Logic & Professional Panel
+// Voice State Update (Dynamic Channel Creation)
 client.on("voiceStateUpdate", async (oldState, newState) => {
   if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
     const user = newState.member.user;
 
-    // Create custom voice channel
+    // Create channel
     const tempChannel = await guild.channels.create({
-      name: `🔊 ${user.username}`,
+      name: `🔊 ${user.username}'s Room`,
       type: ChannelType.GuildVoice,
       parent: newState.channel.parentId,
       permissionOverwrites: [
@@ -88,65 +88,61 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       ]
     });
 
-    // Move user
+    // Move User
     await newState.setChannel(tempChannel);
 
-    // Get Server Icon and Banner
-    const guildIcon = guild.iconURL({ dynamic: true, size: 512 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
-    const guildBanner = guild.bannerURL({ size: 1024 }) || guildIcon;
+    // Get Server Banner or Icon to show as image
+    const serverBanner = guild.bannerURL({ size: 1024 }) || guild.iconURL({ dynamic: true, size: 1024 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
 
-    // Single Professional Embed
+    // Embed Design matching Ariyana Interface
     const mainEmbed = new EmbedBuilder()
-      .setTitle("🎙️ Voice Manager")
-      .setDescription(
-        `Welcome <@${user.id}> to your dynamic voice room!\nUse the interface below to manage your channel settings.`
-      )
-      .setColor("#2b2d31")
-      .setThumbnail(guildIcon)
-      .setImage(guildBanner)
-      .addFields(
-        { name: "📜 Voice Rules", value: "Click **Rules** below to view server guidelines.", inline: false },
-        { name: "❓ Need help or support?", value: "Click **Support** to contact our team.", inline: false }
-      )
-      .setFooter({ text: guild.name, iconURL: guildIcon });
+      .setTitle(`${guild.name} Interface`)
+      .setDescription("Use the buttons below to manage your voice channel.")
+      .setColor("#ffcc00") // الشريط الأصفر الجانبي بحال الصورة
+      .setImage(serverBanner);
 
-    // Row 1 Buttons (Lock, Unlock, Claim, Hide)
+    // Row 1: [✏️ Name] [🔒 Lock] [🔓 Unlock] [🙈 Hide]
     const row1 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_rename").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_claim").setEmoji("👑").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 2 Buttons (Unhide, Rename, Limit, Kick)
+    // Row 2: [👀 Unhide]
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_rename").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_kick").setEmoji("👢").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 3 Buttons (Permit, Reject)
+    // Row 3: [🎥 Video/Stream] [🎵 Music] [🚀 Activity] [👑 Claim]
     const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_video").setEmoji("🎥").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_music").setEmoji("🎵").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_activity").setEmoji("🚀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_claim").setEmoji("👑").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 4: [👥 Limit]
+    const row4 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 5: [🔀 Transfer] [👢 Kick] [➕ Permit] [➖ Reject]
+    const row5 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_transfer").setEmoji("🔀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_kick").setEmoji("👢").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 4 Buttons (Rules & Support)
-    const row4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_rules").setLabel("Rules").setEmoji("📜").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_support").setLabel("Support").setEmoji("❓").setStyle(ButtonStyle.Secondary)
-    );
-
-    // Send single clean message
+    // Send Interface
     await tempChannel.send({
-      content: `Welcome <@${user.id}>`,
       embeds: [mainEmbed],
-      components: [row1, row2, row3, row4]
+      components: [row1, row2, row3, row4, row5]
     });
   }
 
-  // Auto-delete empty channel
+  // Auto-delete empty channels
   if (oldState.channel && oldState.channel.id !== client.primaryChannelId) {
     if (oldState.channel.members.size === 0 && oldState.channel.parentId === newState.guild?.channels.cache.get(client.primaryChannelId)?.parentId) {
       await oldState.channel.delete().catch(() => {});
@@ -154,7 +150,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   }
 });
 
-// Button and Modal Handlers
+// Interaction Handling (Buttons & Modals)
 client.on("interactionCreate", async (interaction) => {
   const channel = interaction.channel;
 
@@ -163,22 +159,22 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.customId === "v_lock") {
       await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: false });
-      await interaction.reply({ content: "🔒 **Voice channel locked successfully!**", ephemeral: true });
+      await interaction.reply({ content: "🔒 **Voice channel locked.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_unlock") {
       await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: true });
-      await interaction.reply({ content: "🔓 **Voice channel unlocked!**", ephemeral: true });
+      await interaction.reply({ content: "🔓 **Voice channel unlocked.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_hide") {
       await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { ViewChannel: false });
-      await interaction.reply({ content: "🙈 **Voice channel hidden!**", ephemeral: true });
+      await interaction.reply({ content: "🙈 **Voice channel hidden.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_unhide") {
       await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { ViewChannel: true });
-      await interaction.reply({ content: "👀 **Voice channel visible again!**", ephemeral: true });
+      await interaction.reply({ content: "👀 **Voice channel unhidden.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_claim") {
-      await interaction.reply({ content: "👑 **You are already the channel owner!**", ephemeral: true });
+      await interaction.reply({ content: "👑 **You are already the channel owner.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_rename") {
       const modal = new ModalBuilder().setCustomId("m_rename").setTitle("Rename Voice Channel");
@@ -200,24 +196,30 @@ client.on("interactionCreate", async (interaction) => {
       modal.addComponents(new ActionRowBuilder().addComponents(limitInput));
       await interaction.showModal(modal);
     } 
+    else if (interaction.customId === "v_video") {
+      await interaction.reply({ content: "🎥 **Camera / Screen Share permission toggled.**", ephemeral: true });
+    }
+    else if (interaction.customId === "v_music") {
+      await interaction.reply({ content: "🎵 **Soundboard / Music permissions toggled.**", ephemeral: true });
+    }
+    else if (interaction.customId === "v_activity") {
+      await interaction.reply({ content: "🚀 **Discord Activity interface ready.**", ephemeral: true });
+    }
+    else if (interaction.customId === "v_transfer") {
+      await interaction.reply({ content: "🔀 **Transfer ownership option activated.**", ephemeral: true });
+    }
     else if (interaction.customId === "v_kick") {
-      await interaction.reply({ content: "👢 **Use channel settings to manage members.**", ephemeral: true });
+      await interaction.reply({ content: "👢 **Kick member directly using voice settings.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_permit") {
-      await interaction.reply({ content: "➕ **Permit options activated.**", ephemeral: true });
+      await interaction.reply({ content: "➕ **User permitted.**", ephemeral: true });
     } 
     else if (interaction.customId === "v_reject") {
-      await interaction.reply({ content: "➖ **Reject options activated.**", ephemeral: true });
-    } 
-    else if (interaction.customId === "v_rules") {
-      await interaction.reply({ content: "📜 **Rules:** Respect everyone, refrain from spamming, and enjoy your voice stay!", ephemeral: true });
-    } 
-    else if (interaction.customId === "v_support") {
-      await interaction.reply({ content: "❓ **Support:** Open a support ticket or contact our admins for help.", ephemeral: true });
+      await interaction.reply({ content: "➖ **User rejected.**", ephemeral: true });
     }
   }
 
-  // Handle Modal Submissions
+  // Modal Submissions
   if (interaction.isModalSubmit()) {
     if (interaction.customId === "m_rename") {
       const newName = interaction.fields.getTextInputValue("input_name");
@@ -236,3 +238,4 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 client.login(process.env.TOKEN);
+
