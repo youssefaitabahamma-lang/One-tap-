@@ -51,12 +51,12 @@ client.on("interactionCreate", async (interaction) => {
     const guild = interaction.guild;
     
     const category = await guild.channels.create({
-      name: "ONE TAP VOICE",
+      name: "🔊 ONE TAP VOICE",
       type: ChannelType.GuildCategory
     });
 
     const primaryChannel = await guild.channels.create({
-      name: "Join to Create",
+      name: "➕ Join to Create",
       type: ChannelType.GuildVoice,
       parent: category.id
     });
@@ -70,15 +70,15 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Voice State Update (Dynamic Channel Creation & Custom Interface)
+// Voice State Update (Dynamic Channel Creation & Clean Interface)
 client.on("voiceStateUpdate", async (oldState, newState) => {
   if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
     const user = newState.member.user;
 
-    // Create channel - ONLY USERNAME WITHOUT EMOJI
+    // Create channel
     const tempChannel = await guild.channels.create({
-      name: `${user.username}`,
+      name: `🔊 ${user.username}'s Room`,
       type: ChannelType.GuildVoice,
       parent: newState.channel.parentId,
       permissionOverwrites: [
@@ -92,62 +92,46 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     // Move User
     await newState.setChannel(tempChannel);
 
-    const guildIcon = guild.iconURL({ dynamic: true, size: 512 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
+    const serverBanner = guild.bannerURL({ size: 1024 }) || guild.iconURL({ dynamic: true, size: 1024 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
 
     // Embed Design
     const mainEmbed = new EmbedBuilder()
-      .setTitle(`${user.username}'s Interface`)
-      .setDescription(
-        `• Welcome to your personal room control!\n` +
-        `• Click the buttons below to control your voice channel.\n\n` +
-        `• Need Help? Type \`.v\` commands to manage permissions.`
-      )
-      .setColor("#2b2d31")
-      .setThumbnail(guildIcon)
-      .setFooter({ text: `${user.username}\n${guild.name}`, iconURL: guildIcon });
+      .setTitle(`🎙️ ${guild.name} Voice Control`)
+      .setDescription("Use the interactive buttons below or type `.v` commands to manage your voice channel.")
+      .setColor("#5865F2") // لون ديسكورد الأزرق الأنيق
+      .setImage(serverBanner)
+      .setFooter({ text: "One Tap Voice System • Powered by YASHIRO", iconURL: guild.iconURL() });
 
-    // Row 1: [✏️ Rename] [🔒 Lock] [🔓 Unlock] [🙈 Hide]
+    // Row 1: Name, Lock, Unlock
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_rename").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_rename").setLabel("Name").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_lock").setLabel("Lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_unlock").setLabel("Unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 2: [👀 Unhide]
+    // Row 2: Hide, Unhide, Limit
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_hide").setLabel("Hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_unhide").setLabel("Unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_limit").setLabel("Limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 3: [🎥 Video] [🎵 Music] [🚀 Activity] [👑 Claim]
+    // Row 3: Claim, Permit, Reject
     const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_video").setEmoji("🎥").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_music").setEmoji("🎵").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_activity").setEmoji("🚀").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_claim").setEmoji("👑").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_claim").setLabel("Claim").setEmoji("👑").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_permit").setLabel("Permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_reject").setLabel("Reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 4: [👥 Limit]
+    // Row 4: Kick, Transfer
     const row4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
-    );
-
-    // Row 5: [🔀 Transfer] [🤲 Owner Transfer] [➕ Permit] [➖ Reject]
-    const row5 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_transfer").setEmoji("🔀").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_owner_transfer").setEmoji("🤲").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
-    );
-
-    // Row 6: [🗑️ Kick/Delete]
-    const row6 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_kick").setEmoji("🗑️").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_kick").setLabel("Kick").setEmoji("👢").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("v_transfer").setLabel("Transfer").setEmoji("🔀").setStyle(ButtonStyle.Primary)
     );
 
     await tempChannel.send({
       embeds: [mainEmbed],
-      components: [row1, row2, row3, row4, row5, row6]
+      components: [row1, row2, row3, row4]
     });
   }
 
@@ -301,13 +285,10 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject specific member.", ephemeral: true });
     }
     else if (interaction.customId === "v_kick") {
-      await interaction.reply({ content: "🗑️ **Use command:** `.v kick @User` to kick member from voice.", ephemeral: true });
+      await interaction.reply({ content: "👢 **Use command:** `.v kick @User` to kick member from voice.", ephemeral: true });
     }
-    else if (interaction.customId === "v_transfer" || interaction.customId === "v_owner_transfer") {
+    else if (interaction.customId === "v_transfer") {
       await interaction.reply({ content: "🔀 **Ownership transfer ready.**", ephemeral: true });
-    }
-    else if (interaction.customId === "v_video" || interaction.customId === "v_music" || interaction.customId === "v_activity") {
-      await interaction.reply({ content: "⚙️ **Voice channel permissions updated.**", ephemeral: true });
     }
   }
 
