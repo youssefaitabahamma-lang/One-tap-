@@ -70,13 +70,13 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Dynamic Voice Channel Creation & Clean Interface Design
+// Voice State Update (Dynamic Channel Creation & Custom Interface)
 client.on("voiceStateUpdate", async (oldState, newState) => {
   if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
     const user = newState.member.user;
 
-    // Create custom voice channel - ONLY USERNAME, NO EMOJI
+    // Create channel - ONLY USERNAME WITHOUT EMOJI
     const tempChannel = await guild.channels.create({
       name: `${user.username}`,
       type: ChannelType.GuildVoice,
@@ -94,7 +94,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
     const guildIcon = guild.iconURL({ dynamic: true, size: 512 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
 
-    // Embed Design (Name of user and server)
+    // Embed Design
     const mainEmbed = new EmbedBuilder()
       .setTitle(`${user.username}'s Interface`)
       .setDescription(
@@ -104,7 +104,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       )
       .setColor("#2b2d31")
       .setThumbnail(guildIcon)
-      .setFooter({ text: `${user.username} | ${guild.name}`, iconURL: guildIcon });
+      .setFooter({ text: `${user.username}\n${guild.name}`, iconURL: guildIcon });
 
     // Row 1: [✏️ Rename] [🔒 Lock] [🔓 Unlock] [🙈 Hide]
     const row1 = new ActionRowBuilder().addComponents(
@@ -132,7 +132,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 5: [🔀 Transfer] [🤲 Owner] [➕ Permit] [➖ Reject]
+    // Row 5: [🔀 Transfer] [🤲 Owner Transfer] [➕ Permit] [➖ Reject]
     const row5 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("v_transfer").setEmoji("🔀").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_owner_transfer").setEmoji("🤲").setStyle(ButtonStyle.Secondary),
@@ -151,7 +151,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     });
   }
 
-  // Auto-delete empty channel
+  // Auto-delete empty channels
   if (oldState.channel && oldState.channel.id !== client.primaryChannelId) {
     if (oldState.channel.members.size === 0 && oldState.channel.parentId === newState.guild?.channels.cache.get(client.primaryChannelId)?.parentId) {
       await oldState.channel.delete().catch(() => {});
@@ -159,7 +159,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   }
 });
 
-// --- Message Commands (.v Prefix) in English ---
+// Message Commands (.v prefix)
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild) return;
 
@@ -171,12 +171,12 @@ client.on("messageCreate", async (message) => {
 
   const channel = message.member.voice.channel;
   if (!channel) {
-    return message.reply("❌ You must be inside your voice channel to use `.v` commands!");
+    return message.reply("❌ You must be in a voice channel to use `.v` commands!");
   }
 
   if (command === "lock") {
     await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: false });
-    return message.reply("🔒 **Voice channel locked successfully.**");
+    return message.reply("🔒 **Voice channel locked.**");
   } 
   else if (command === "unlock") {
     await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: true });
@@ -194,7 +194,7 @@ client.on("messageCreate", async (message) => {
     const newName = args.join(" ");
     if (!newName) return message.reply("❌ Usage: `.v name [New Name]`");
     await channel.setName(newName);
-    return message.reply(`✏️ **Channel name changed to:** \`${newName}\``);
+    return message.reply(`✏️ **Channel renamed to:** \`${newName}\``);
   } 
   else if (command === "limit") {
     const limitNum = parseInt(args[0]);
@@ -210,7 +210,7 @@ client.on("messageCreate", async (message) => {
     if (!target) return message.reply("❌ Usage: `.v kick @User`");
     if (target.voice.channelId === channel.id) {
       await target.voice.disconnect();
-      return message.reply(`👢 **Kicked ${target.user.username} from voice channel.**`);
+      return message.reply(`👢 **Kicked ${target.user.username} from voice.**`);
     } else {
       return message.reply("❌ User is not in your voice channel!");
     }
@@ -231,7 +231,7 @@ client.on("messageCreate", async (message) => {
     return message.reply(`➖ **Rejected ${target.user.username}.**`);
   } 
   else if (command === "transfer") {
-    return message.reply("🔀 **Ownership transfer command processed.**");
+    return message.reply("🔀 **Ownership transfer command received.**");
   } 
   else if (command === "bl") {
     const subCommand = args[0]?.toLowerCase();
@@ -248,7 +248,7 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Interactive Button Controller & Modals
+// Button Interactions & Modals
 client.on("interactionCreate", async (interaction) => {
   const channel = interaction.channel;
 
@@ -295,13 +295,13 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.showModal(modal);
     }
     else if (interaction.customId === "v_permit") {
-      await interaction.reply({ content: "➕ **Use command:** `.v perm @User` to permit member.", ephemeral: true });
+      await interaction.reply({ content: "➕ **Use command:** `.v perm @User` to permit specific member.", ephemeral: true });
     }
     else if (interaction.customId === "v_reject") {
-      await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject member.", ephemeral: true });
+      await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject specific member.", ephemeral: true });
     }
     else if (interaction.customId === "v_kick") {
-      await interaction.reply({ content: "🗑️ **Use command:** `.v kick @User` to kick member.", ephemeral: true });
+      await interaction.reply({ content: "🗑️ **Use command:** `.v kick @User` to kick member from voice.", ephemeral: true });
     }
     else if (interaction.customId === "v_transfer" || interaction.customId === "v_owner_transfer") {
       await interaction.reply({ content: "🔀 **Ownership transfer ready.**", ephemeral: true });
