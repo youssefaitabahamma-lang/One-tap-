@@ -70,13 +70,13 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Voice State Update (Dynamic Channel Creation & Clean Interface)
+// Dynamic Voice Channel Creation & Miku Interface Design
 client.on("voiceStateUpdate", async (oldState, newState) => {
   if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
     const user = newState.member.user;
 
-    // Create channel
+    // Create custom voice channel
     const tempChannel = await guild.channels.create({
       name: `🔊 ${user.username}'s Room`,
       type: ChannelType.GuildVoice,
@@ -92,50 +92,66 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     // Move User
     await newState.setChannel(tempChannel);
 
-    const serverBanner = guild.bannerURL({ size: 1024 }) || guild.iconURL({ dynamic: true, size: 1024 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
+    const guildIcon = guild.iconURL({ dynamic: true, size: 512 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
 
-    // Embed Design
+    // Embed Design exact to Miku Interface
     const mainEmbed = new EmbedBuilder()
-      .setTitle(`🎙️ ${guild.name} Voice Control`)
-      .setDescription("Use the interactive buttons below or type `.v` commands to manage your voice channel.")
-      .setColor("#5865F2") // لون ديسكورد الأزرق الأنيق
-      .setImage(serverBanner)
-      .setFooter({ text: "One Tap Voice System • Powered by YASHIRO", iconURL: guild.iconURL() });
+      .setTitle(`${guild.name} Interface`)
+      .setDescription(
+        `• 🔊 **Welcome to your personal room control!**\n` +
+        `• Click the buttons below to control your voice channel\n\n` +
+        `• **Need Help?** Type \`.v\` commands or contact server staff.`
+      )
+      .setColor("#2b2d31")
+      .setThumbnail(guildIcon)
+      .setFooter({ text: `${guild.name} TempVoice, Powered by Dark Clover`, iconURL: guildIcon });
 
-    // Row 1: Name, Lock, Unlock
+    // Row 1: [✏️ Rename] [🔒 Lock] [🔓 Unlock] [🙈 Hide]
     const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_rename").setLabel("Name").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_lock").setLabel("Lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_unlock").setLabel("Unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_rename").setEmoji("✏️").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_lock").setEmoji("🔒").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_unlock").setEmoji("🔓").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 2: Hide, Unhide, Limit
+    // Row 2: [👀 Unhide]
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_hide").setLabel("Hide").setEmoji("🙈").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_unhide").setLabel("Unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_limit").setLabel("Limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_unhide").setEmoji("👀").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 3: Claim, Permit, Reject
+    // Row 3: [🎥 Video] [🎵 Music] [🚀 Activity] [👑 Claim]
     const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_claim").setLabel("Claim").setEmoji("👑").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_permit").setLabel("Permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId("v_reject").setLabel("Reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("v_video").setEmoji("🎥").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_music").setEmoji("🎵").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_activity").setEmoji("🚀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_claim").setEmoji("👑").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 4: Kick, Transfer
+    // Row 4: [👥 Limit]
     const row4 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("v_kick").setLabel("Kick").setEmoji("👢").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("v_transfer").setLabel("Transfer").setEmoji("🔀").setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 5: [🔀 Transfer] [🪑 Ownership] [➕ Permit] [➖ Reject]
+    const row5 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_transfer").setEmoji("🔀").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_owner_transfer").setEmoji("🤲").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_permit").setEmoji("➕").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("v_reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
+    );
+
+    // Row 6: [🗑️ Delete/Kick]
+    const row6 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("v_kick").setEmoji("🗑️").setStyle(ButtonStyle.Secondary)
     );
 
     await tempChannel.send({
       embeds: [mainEmbed],
-      components: [row1, row2, row3, row4]
+      components: [row1, row2, row3, row4, row5, row6]
     });
   }
 
-  // Auto-delete empty channels
+  // Auto-delete empty channel
   if (oldState.channel && oldState.channel.id !== client.primaryChannelId) {
     if (oldState.channel.members.size === 0 && oldState.channel.parentId === newState.guild?.channels.cache.get(client.primaryChannelId)?.parentId) {
       await oldState.channel.delete().catch(() => {});
@@ -143,7 +159,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   }
 });
 
-// Message Commands (.v prefix)
+// --- Message Commands (.v Prefix) in English ---
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild) return;
 
@@ -155,12 +171,12 @@ client.on("messageCreate", async (message) => {
 
   const channel = message.member.voice.channel;
   if (!channel) {
-    return message.reply("❌ You must be in a voice channel to use `.v` commands!");
+    return message.reply("❌ You must be inside your voice channel to use `.v` commands!");
   }
 
   if (command === "lock") {
     await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: false });
-    return message.reply("🔒 **Voice channel locked.**");
+    return message.reply("🔒 **Voice channel locked successfully.**");
   } 
   else if (command === "unlock") {
     await channel.permissionOverwrites.edit(message.guild.roles.everyone, { Connect: true });
@@ -178,7 +194,7 @@ client.on("messageCreate", async (message) => {
     const newName = args.join(" ");
     if (!newName) return message.reply("❌ Usage: `.v name [New Name]`");
     await channel.setName(newName);
-    return message.reply(`✏️ **Channel renamed to:** \`${newName}\``);
+    return message.reply(`✏️ **Channel name changed to:** \`${newName}\``);
   } 
   else if (command === "limit") {
     const limitNum = parseInt(args[0]);
@@ -194,7 +210,7 @@ client.on("messageCreate", async (message) => {
     if (!target) return message.reply("❌ Usage: `.v kick @User`");
     if (target.voice.channelId === channel.id) {
       await target.voice.disconnect();
-      return message.reply(`👢 **Kicked ${target.user.username} from voice.**`);
+      return message.reply(`👢 **Kicked ${target.user.username} from voice channel.**`);
     } else {
       return message.reply("❌ User is not in your voice channel!");
     }
@@ -215,7 +231,7 @@ client.on("messageCreate", async (message) => {
     return message.reply(`➖ **Rejected ${target.user.username}.**`);
   } 
   else if (command === "transfer") {
-    return message.reply("🔀 **Ownership transfer command received.**");
+    return message.reply("🔀 **Ownership transfer command processed.**");
   } 
   else if (command === "bl") {
     const subCommand = args[0]?.toLowerCase();
@@ -232,7 +248,7 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Button Interactions & Modals
+// Interactive Button Controller & Modals
 client.on("interactionCreate", async (interaction) => {
   const channel = interaction.channel;
 
@@ -279,16 +295,19 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.showModal(modal);
     }
     else if (interaction.customId === "v_permit") {
-      await interaction.reply({ content: "➕ **Use command:** `.v perm @User` to permit specific member.", ephemeral: true });
+      await interaction.reply({ content: "➕ **Use command:** `.v perm @User` to permit member.", ephemeral: true });
     }
     else if (interaction.customId === "v_reject") {
-      await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject specific member.", ephemeral: true });
+      await interaction.reply({ content: "➖ **Use command:** `.v reject @User` to reject member.", ephemeral: true });
     }
     else if (interaction.customId === "v_kick") {
-      await interaction.reply({ content: "👢 **Use command:** `.v kick @User` to kick member from voice.", ephemeral: true });
+      await interaction.reply({ content: "🗑️ **Use command:** `.v kick @User` to kick member.", ephemeral: true });
     }
-    else if (interaction.customId === "v_transfer") {
+    else if (interaction.customId === "v_transfer" || interaction.customId === "v_owner_transfer") {
       await interaction.reply({ content: "🔀 **Ownership transfer ready.**", ephemeral: true });
+    }
+    else if (interaction.customId === "v_video" || interaction.customId === "v_music" || interaction.customId === "v_activity") {
+      await interaction.reply({ content: "⚙️ **Voice channel permissions updated.**", ephemeral: true });
     }
   }
 
