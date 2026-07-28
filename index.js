@@ -51,12 +51,12 @@ client.on("interactionCreate", async (interaction) => {
     const guild = interaction.guild;
     
     const category = await guild.channels.create({
-      name: "🔊 ONE TAP VOICE",
+      name: "ONE TAP VOICE",
       type: ChannelType.GuildCategory
     });
 
     const primaryChannel = await guild.channels.create({
-      name: "➕ Join to Create",
+      name: "Join to Create",
       type: ChannelType.GuildVoice,
       parent: category.id
     });
@@ -70,15 +70,15 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
-// Dynamic Voice Channel Creation & Miku Interface Design
+// Dynamic Voice Channel Creation & Clean Interface Design
 client.on("voiceStateUpdate", async (oldState, newState) => {
   if (newState.channelId && newState.channelId === client.primaryChannelId) {
     const guild = newState.guild;
     const user = newState.member.user;
 
-    // Create custom voice channel
+    // Create custom voice channel - ONLY USERNAME, NO EMOJI
     const tempChannel = await guild.channels.create({
-      name: `🔊 ${user.username}'s Room`,
+      name: `${user.username}`,
       type: ChannelType.GuildVoice,
       parent: newState.channel.parentId,
       permissionOverwrites: [
@@ -94,17 +94,17 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
     const guildIcon = guild.iconURL({ dynamic: true, size: 512 }) || "https://cdn.discordapp.com/embed/avatars/0.png";
 
-    // Embed Design exact to Miku Interface
+    // Embed Design (Name of user and server)
     const mainEmbed = new EmbedBuilder()
-      .setTitle(`${guild.name} Interface`)
+      .setTitle(`${user.username}'s Interface`)
       .setDescription(
-        `• 🔊 **Welcome to your personal room control!**\n` +
-        `• Click the buttons below to control your voice channel\n\n` +
-        `• **Need Help?** Type \`.v\` commands or contact server staff.`
+        `• Welcome to your personal room control!\n` +
+        `• Click the buttons below to control your voice channel.\n\n` +
+        `• Need Help? Type \`.v\` commands to manage permissions.`
       )
       .setColor("#2b2d31")
       .setThumbnail(guildIcon)
-      .setFooter({ text: `${guild.name} TempVoice, Powered by Dark Clover`, iconURL: guildIcon });
+      .setFooter({ text: `${user.username} | ${guild.name}`, iconURL: guildIcon });
 
     // Row 1: [✏️ Rename] [🔒 Lock] [🔓 Unlock] [🙈 Hide]
     const row1 = new ActionRowBuilder().addComponents(
@@ -132,7 +132,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       new ButtonBuilder().setCustomId("v_limit").setEmoji("👥").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 5: [🔀 Transfer] [🪑 Ownership] [➕ Permit] [➖ Reject]
+    // Row 5: [🔀 Transfer] [🤲 Owner] [➕ Permit] [➖ Reject]
     const row5 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("v_transfer").setEmoji("🔀").setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId("v_owner_transfer").setEmoji("🤲").setStyle(ButtonStyle.Secondary),
@@ -140,7 +140,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
       new ButtonBuilder().setCustomId("v_reject").setEmoji("➖").setStyle(ButtonStyle.Secondary)
     );
 
-    // Row 6: [🗑️ Delete/Kick]
+    // Row 6: [🗑️ Kick/Delete]
     const row6 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("v_kick").setEmoji("🗑️").setStyle(ButtonStyle.Secondary)
     );
