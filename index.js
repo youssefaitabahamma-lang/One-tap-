@@ -1,7 +1,21 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
+
+// ---- Keep-alive web server (for Replit) ----
+// This gives the bot an HTTP endpoint that an uptime pinger (or Replit's
+// "Always On" deployment) can hit to help prevent the repl from sleeping.
+// See the README for why this alone does not guarantee 24/7 uptime on
+// Replit's free tier.
+const app = express();
+app.get('/', (req, res) => {
+  res.send('OneTap bot is running.');
+});
+app.listen(process.env.PORT || 3000, () => {
+  console.log('[KeepAlive] Web server listening — ping this URL to help prevent sleeping.');
+});
 
 const client = new Client({
   intents: [
