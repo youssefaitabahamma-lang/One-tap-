@@ -1,16 +1,5 @@
-{
-  "name": "one-tap-bot",
-  "version": "1.0.0",
-  "description": "One Tap Voice Bot",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "engines": {
-    "node": "20.x"
-  },
-  "dependencies": {
-    "discord.js": "^14.21.0",
-    "sqlite3": "^5.1.7"
-  }
+"dependencies": {
+  "discord.js": "^14.15.3",
+  "dotenv": "^16.4.5",
+  "express": "^4.19.2"
 }
